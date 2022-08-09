@@ -1,8 +1,4 @@
-
-// File: @openzeppelin/contracts/token/ERC20/IERC20.sol
-
-
-// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
 
@@ -1465,6 +1461,8 @@ pragma solidity ^0.8.7;
 contract CryptoBlvd is ERC721A, Ownable {
     using Strings for uint256;
 
+    IERC20 public usdt;
+
     string private uriPrefix =
         "ipfs://Qmaf6UunTgeMoRAtawsmSunjCBFpdsTM8ZhfTbBZpZanJr/";
     string private uriSuffix = ".json";
@@ -1473,15 +1471,18 @@ contract CryptoBlvd is ERC721A, Ownable {
 
     uint16 public constant maxSupply = 4920;
     uint8 public maxMintAmountPerWallet = 10;
-    uint256 public cost = 0 ether;
+    uint256 public cost = 350 * (10**6);
+    uint256 public dis_cost = 300 * (10**6);
 
     bool public paused = false;
     bool public reveal = true;
     mapping(address => uint8) public NFTPerAddress;
 
-    constructor() ERC721A("Crypto Blvd", "CRBLVD") {}
+    constructor(address _usdt) ERC721A("Crypto Blvd", "CRBLVD") {
+        usdt = IERC20(_usdt);
+    }
 
-    function mint(uint8 _mintAmount) external payable {
+    function mint(uint8 _mintAmount, uint256 _weiAmount) external {
         uint16 totalSupply = uint16(totalSupply());
         require(totalSupply + _mintAmount <= maxSupply, "Exceeds max supply.");
         uint8 nft = NFTPerAddress[msg.sender];
@@ -1492,13 +1493,15 @@ contract CryptoBlvd is ERC721A, Ownable {
 
         require(!paused, "The contract is paused!");
         if (nft >= 1) {
-            require(msg.value >= cost * _mintAmount, "Insufficient Funds");
+            require(_weiAmount >= cost * _mintAmount, "Insufficient Funds");
         } else {
             require(
-                msg.value >= cost * (_mintAmount - 1),
+                _weiAmount >= (cost * (_mintAmount - 1) + dis_cost),
                 "Insufficient Funds"
             );
         }
+        
+        require(usdt.transferFrom(msg.sender, owner(), _weiAmount), "CONTRACT: USDT Transfer Failed");
 
         _safeMint(msg.sender, _mintAmount);
 
@@ -1568,10 +1571,10 @@ contract CryptoBlvd is ERC721A, Ownable {
         maxMintAmountPerWallet = _maxtx;
     }
 
-    function withdraw() external onlyOwner {
-        uint256 _balance = address(this).balance;
-        payable(msg.sender).transfer(_balance);
-    }
+    // function withdraw() external onlyOwner {
+    //     uint256 _balance = address(this).balance;
+    //     payable(msg.sender).transfer(_balance);
+    // }
 
     function _baseURI() internal view override returns (string memory) {
         return uriPrefix;
