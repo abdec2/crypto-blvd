@@ -1,89 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
-
-/**
- * @dev Interface of the ERC20 standard as defined in the EIP.
- */
-interface IERC20 {
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `to`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address to, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `from` to `to` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
-}
-
-// File: contracts/cryptoBlvd.sol
-
-
-
 pragma solidity 0.8.15;
 
 /**
@@ -1461,8 +1377,6 @@ pragma solidity ^0.8.7;
 contract CryptoBlvd is ERC721A, Ownable {
     using Strings for uint256;
 
-    IERC20 public usdt;
-
     string private uriPrefix =
         "ipfs://Qmaf6UunTgeMoRAtawsmSunjCBFpdsTM8ZhfTbBZpZanJr/";
     string private uriSuffix = ".json";
@@ -1471,18 +1385,17 @@ contract CryptoBlvd is ERC721A, Ownable {
 
     uint16 public constant maxSupply = 4920;
     uint8 public maxMintAmountPerWallet = 10;
-    uint256 public cost = 350 * (10**6);
-    uint256 public dis_cost = 300 * (10**6);
+    uint256 public cost = 0.18 ether;
+    uint256 public dis_cost = 0.15 ether;
 
     bool public paused = false;
     bool public reveal = true;
     mapping(address => uint8) public NFTPerAddress;
 
-    constructor(address _usdt) ERC721A("Crypto Blvd", "CRBLVD") {
-        usdt = IERC20(_usdt);
+    constructor() ERC721A("Crypto Blvd", "CRBLVD") {
     }
 
-    function mint(uint8 _mintAmount, uint256 _weiAmount) external {
+    function mint(uint8 _mintAmount) external payable {
         uint16 totalSupply = uint16(totalSupply());
         require(totalSupply + _mintAmount <= maxSupply, "Exceeds max supply.");
         uint8 nft = NFTPerAddress[msg.sender];
@@ -1493,16 +1406,14 @@ contract CryptoBlvd is ERC721A, Ownable {
 
         require(!paused, "The contract is paused!");
         if (nft >= 1) {
-            require(_weiAmount >= cost * _mintAmount, "Insufficient Funds");
+            require(msg.value >= cost * _mintAmount, "Insufficient Funds");
         } else {
             require(
-                _weiAmount >= (cost * (_mintAmount - 1) + dis_cost),
+                msg.value >= (cost * (_mintAmount - 1) + dis_cost),
                 "Insufficient Funds"
             );
         }
         
-        require(usdt.transferFrom(msg.sender, owner(), _weiAmount), "CONTRACT: USDT Transfer Failed");
-
         _safeMint(msg.sender, _mintAmount);
 
         NFTPerAddress[msg.sender] = _mintAmount + nft;
@@ -1563,6 +1474,10 @@ contract CryptoBlvd is ERC721A, Ownable {
         cost = _Cost;
     }
 
+    function setDiscCost(uint256 _Cost) external onlyOwner {
+        dis_cost = _Cost;
+    }
+
     function setRevealed() external onlyOwner {
         reveal = !reveal;
     }
@@ -1571,10 +1486,10 @@ contract CryptoBlvd is ERC721A, Ownable {
         maxMintAmountPerWallet = _maxtx;
     }
 
-    // function withdraw() external onlyOwner {
-    //     uint256 _balance = address(this).balance;
-    //     payable(msg.sender).transfer(_balance);
-    // }
+    function withdraw() external onlyOwner {
+        uint256 _balance = address(this).balance;
+        payable(msg.sender).transfer(_balance);
+    }
 
     function _baseURI() internal view override returns (string memory) {
         return uriPrefix;
